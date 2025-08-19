@@ -4,22 +4,47 @@
 void *printMessage(void *arg)
 {
     char *message = (char *)(arg);
-    std::cout << message << std::endl;
+    std::cout << message << "\n"
+              << std::endl;
     return nullptr;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-    pthread_t thread1, thread2;
+    if (argc != 4)
+    {
+        std::cerr << "Error: requires three arguements\n";
+        return 1;
+    }
+    std::string numFilesStr = argv[1];
+    int numFiles = 0;
 
-    const char *msg1 = "Hello from thread 1";
-    const char *msg2 = "Hello from thread 2";
+    try
+    {
+        numFiles = std::stoi(numFilesStr);
+        if (numFiles < 2 || numFiles > 10)
+        {
+            std::cerr << "Error: number of files must be between 2 & 10\n";
+        }
+    }
+    catch (const std::invalid_argument &)
+    {
+        std::cerr << "Error: first arguement must be a valid integer\n";
+        return 1;
+    }
+    catch (const std::out_of_range &)
+    {
+        std::cerr << "Error: integer out of range\n";
+    }
 
-    pthread_create(&thread1, nullptr, printMessage, (void *)msg1);
-    pthread_create(&thread2, nullptr, printMessage, (void *)msg2);
+    char *sourceDir = argv[2];
+    char *destDir = argv[3];
+
+    pthread_t threads[numFiles];
+
+    pthread_create(&thread1, nullptr, printMessage, (void *)sourceDir);
 
     pthread_join(thread1, nullptr);
-    pthread_join(thread2, nullptr);
 
     std::cout << "Main thread exiting." << std::endl;
     return 0;
