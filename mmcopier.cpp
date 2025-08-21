@@ -77,15 +77,15 @@ int main(int argc, char *argv[])
 
     std::string source = "source";
     std::string txt = ".txt";
-    pthread_t threads[numFiles + 1];
-    for (int i = 1; i <= numFiles; i++)
+    pthread_t threads[numFiles];
+    for (int i = 0; i < numFiles; i++)
     {
-        std::string name = source + std::to_string(i) + txt;
+        std::string name = source + std::to_string(i + 1) + txt;
         fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
-        pthread_create(&threads[i], nullptr, copyFile, (void *)&file);
+        pthread_create(&threads[i], nullptr, copyFile, file);
     }
 
-    for (size_t i = 1; i <= numFiles; ++i)
+    for (int i = 0; i < numFiles; ++i)
     {
         void *ptr;
         pthread_join(threads[i], &ptr);
