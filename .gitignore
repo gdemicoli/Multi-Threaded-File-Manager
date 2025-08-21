@@ -3,3 +3,4 @@
 .source_dir
 .test.dSYM
 .test
+.dest_dir/
