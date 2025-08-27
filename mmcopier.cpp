@@ -24,7 +24,7 @@ void *copyFile(void *arg)
     std::string destPath = file->destDir + "/" + file->fileName;
 
     std::ifstream src(sourcePath, std::ios::binary);
-    std::ofstream dst(destPath, std::ios::binary);
+    std::ofstream dst(destPath, std::ios::binary); // creates file if it doesnt exist
 
     if (!src)
     {
@@ -37,7 +37,7 @@ void *copyFile(void *arg)
         return nullptr;
     }
 
-    dst << src.rdbuf();
+    dst << src.rdbuf(); // writes to destination file
 
     return arg;
 }
@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < numFiles; i++)
     {
         std::string name = source + std::to_string(i + 1) + txt;
+        // *file is created on the heap so it lives no past the loop iteration
         fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
         pthread_create(&threads[i], nullptr, copyFile, file);
     }
