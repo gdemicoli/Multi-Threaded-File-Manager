@@ -1,5 +1,6 @@
 #include <iostream>
 #include <pthread.h>
+#include <fstream>
 #include "zem.h"
 
 // FIX-ME: must check return type of all api functions
@@ -43,8 +44,16 @@ void *consumer(void *arg)
 
 void *producer(void *arg)
 {
-    int i;
-    for (i = 0; i < loops; i++)
+    std::ifstream *file = static_cast<std::ifstream *>(arg);
+
+    if (!file || !file->is_open())
+    {
+        std::cerr << "File not open in thread!" << std::endl;
+        return nullptr;
+    }
+
+    char *line;
+    while (!std::getline(*file, line))
     {
         empty.wait(); // Line P1
         mutex.wait(); // Line P1.5 (lock)
@@ -52,20 +61,21 @@ void *producer(void *arg)
         mutex.post(); // Line P2.5 (unlock)
         full.post();  // Line P3
     }
+
     return nullptr;
 }
 
 int main(int argc, char *argv[])
 {
     // fix-me:  check if source file exists...
+
+    std::string numThreadsStr = argv[1];
+    int threads = 0;
     if (argc != 4)
     {
         std::cerr << "Error: requires three arguements\n";
         return 1;
     }
-    std::string numThreadsStr = argv[1];
-    int threads = 0;
-
     try
     {
         threads = std::stoi(numThreadsStr);
@@ -89,17 +99,21 @@ int main(int argc, char *argv[])
     char *sourcefile = argv[2]; // char arrays
     char *destFile = argv[3];   // char arrays
 
-    std::string source = "source";
-    std::string txt = ".txt";
+    std::ifstream *file = new std::ifstream(sourcefile);
+    if (!file->is_open())
+    {
+        std::cerr << "File not found" << std::endl;
+    }
+
     pthread_t producerThreads[threads];
     pthread_t consumerThreads[threads];
 
     for (int i = 0; i < threads; i++)
     {
-        std::string name = source + std::to_string(i + 1) + txt;
+        // std::string name = source + std::to_string(i + 1) + txt;
         // *file is created on the heap so it lives no past the loop iteration
         // fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
-        pthread_create(&producerThreads[i], nullptr, producer, sourcefile);
+        pthread_create(&producerThreads[i], nullptr, producer, file);
         pthread_create(&consumerThreads[i], nullptr, consumer, destFile);
     }
 
