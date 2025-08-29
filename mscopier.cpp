@@ -4,25 +4,26 @@
 #include "zem.h"
 
 // FIX-ME: must check return type of all api functions
-const int MAX = 1;
+const int MAX = 15;
 Zem empty(MAX);
 Zem full(0);
-Zem mutex(1);
+Zem queueMutex(1);
+Zem fileLock(1);
 int loops = 5;
 
-int buffer[MAX];
+std::string buffer[MAX];
 int fill = 0;
 int use = 0;
 
-void put(int value)
+void put(std::string line)
 {
-    buffer[fill] = value;
+    buffer[fill] = line;
     fill = (fill + 1) % MAX;
 }
 
-int get()
+std::string get()
 {
-    int tmp = buffer[use];
+    std::string tmp = buffer[use];
     use = (use + 1) % MAX;
     return tmp;
 }
@@ -32,12 +33,11 @@ void *consumer(void *arg)
     int i;
     for (i = 0; i < loops; i++)
     {
-        full.wait();     // Line C1
-        mutex.wait();    // Line C1.5 (lock)
-        int tmp = get(); // Line C2
-        mutex.post();    // Line C2.5 (unlock)
-        empty.post();    // Line C3
-        printf("%d\n", tmp);
+        full.wait();             // Line C1
+        queueMutex.wait();       // Line C1.5 (lock)
+        std::string tmp = get(); // Line C2
+        queueMutex.post();       // Line C2.5 (unlock)
+        empty.post();            // Line C3
     }
     return nullptr;
 }
@@ -51,15 +51,25 @@ void *producer(void *arg)
         std::cerr << "File not open in thread!" << std::endl;
         return nullptr;
     }
+    // Start here work out how we will check that there aer more lines to places in buffer
+    // whether we use put func or place logic here directly
+    std::string line;
 
-    char *line;
-    while (!std::getline(*file, line))
+    while (true)
     {
-        empty.wait(); // Line P1
-        mutex.wait(); // Line P1.5 (lock)
-        put(i);       // Line P2
-        mutex.post(); // Line P2.5 (unlock)
-        full.post();  // Line P3
+        fileLock.wait();
+        if (!std::getline(*file, line))
+        {
+            fileLock.post();
+            break;
+        }
+        fileLock.post();
+
+        empty.wait();      // Line P1
+        queueMutex.wait(); // Line P1.5 (lock)
+        put(line);         // Line P2
+        queueMutex.post(); // Line P2.5 (unlock)
+        full.post();       // Line P3
     }
 
     return nullptr;
@@ -114,16 +124,20 @@ int main(int argc, char *argv[])
         // *file is created on the heap so it lives no past the loop iteration
         // fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
         pthread_create(&producerThreads[i], nullptr, producer, file);
-        pthread_create(&consumerThreads[i], nullptr, consumer, destFile);
+        // pthread_create(&consumerThreads[i], nullptr, consumer, destFile);
+    }
+    for (int i = 0; i < threads; i++)
+    {
+        pthread_join(producerThreads[i], nullptr);
     }
 
-    pthread_t producerThread;
-    pthread_t consumerThread;
-    pthread_create(&producerThread, nullptr, producer, nullptr);
-    pthread_create(&consumerThread, nullptr, consumer, nullptr);
+    for (int i = 0; i < MAX; i++)
+    {
+        std::cout << "buffer at " << i << " is " << buffer[i] << "\n"
+                  << std::endl;
+    }
 
-    pthread_join(producerThread, nullptr);
-    pthread_join(consumerThread, nullptr);
+    // pthread_join(consumerThread, nullptr);
 
     return 0;
 }
