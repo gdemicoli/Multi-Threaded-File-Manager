@@ -4,12 +4,12 @@
 #include "zem.h"
 
 // FIX-ME: must check return type of all api functions
-const int MAX = 15;
+const int MAX = 20;
 Zem empty(MAX);
 Zem full(0);
 Zem queueMutex(1);
 Zem fileLock(1);
-int loops = 5;
+Zem writeMutex(1);
 
 std::string buffer[MAX];
 int fill = 0;
@@ -23,21 +23,48 @@ void put(std::string line)
 
 std::string get()
 {
+
     std::string tmp = buffer[use];
     use = (use + 1) % MAX;
+    std::cout << "----------"
+              << std::endl;
+    std::cout << "Buffer is:"
+              << std::endl;
+    for (int i = 0; i < MAX; i++)
+    {
+        std::cout << "Buffer " << i << " is: " << buffer[i] << std::endl;
+    }
+    std::cout << "Removed: " << tmp
+              << std::endl;
+    std::cout << "----------\n"
+              << std::endl;
     return tmp;
 }
 
 void *consumer(void *arg)
 {
-    int i;
-    for (i = 0; i < loops; i++)
+    std::ofstream *outfile = static_cast<std::ofstream *>(arg);
+    while (true)
     {
-        full.wait();             // Line C1
-        queueMutex.wait();       // Line C1.5 (lock)
-        std::string tmp = get(); // Line C2
-        queueMutex.post();       // Line C2.5 (unlock)
-        empty.post();            // Line C3
+        full.wait();
+        queueMutex.wait();
+        std::string line = get();
+        // std::cout << "Consumed: '" << line << "' from index " << use - 1 << std::endl;
+
+        if (line == "__STOP__")
+        {
+            queueMutex.post();
+            empty.post();
+            break;
+        }
+
+        *outfile << line << "\n";
+        queueMutex.post();
+        empty.post();
+
+        writeMutex.wait();
+
+        writeMutex.post();
     }
     return nullptr;
 }
@@ -51,22 +78,20 @@ void *producer(void *arg)
         std::cerr << "File not open in thread!" << std::endl;
         return nullptr;
     }
-    // Start here work out how we will check that there aer more lines to places in buffer
-    // whether we use put func or place logic here directly
     std::string line;
 
     while (true)
     {
-        fileLock.wait();
-        if (!std::getline(*file, line))
-        {
-            fileLock.post();
-            break;
-        }
-        fileLock.post();
-
         empty.wait();      // Line P1
         queueMutex.wait(); // Line P1.5 (lock)
+        if (!std::getline(*file, line))
+        {
+            put("__STOP__");
+            queueMutex.post(); // Line P2.5 (unlock)
+            full.post();       // Line P3
+            break;
+        }
+        std::cout << "Produced: '" << line << "' at index " << fill << std::endl;
         put(line);         // Line P2
         queueMutex.post(); // Line P2.5 (unlock)
         full.post();       // Line P3
@@ -91,7 +116,7 @@ int main(int argc, char *argv[])
         threads = std::stoi(numThreadsStr);
         if (threads < 2 || threads > 10)
         {
-            std::cerr << "Error: number of files must be between 2 & 10\n";
+            std::cerr << "Error: number of threads must be between 2 & 10\n";
             return 1;
         }
     }
@@ -115,6 +140,13 @@ int main(int argc, char *argv[])
         std::cerr << "File not found" << std::endl;
     }
 
+    std::ofstream *outfile = new std::ofstream(destFile, std::ios::out);
+    if (!outfile->is_open())
+    {
+        std::cerr << "Could not open destination file!" << std::endl;
+        return 1;
+    }
+
     pthread_t producerThreads[threads];
     pthread_t consumerThreads[threads];
 
@@ -124,20 +156,19 @@ int main(int argc, char *argv[])
         // *file is created on the heap so it lives no past the loop iteration
         // fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
         pthread_create(&producerThreads[i], nullptr, producer, file);
-        // pthread_create(&consumerThreads[i], nullptr, consumer, destFile);
+        pthread_create(&consumerThreads[i], nullptr, consumer, outfile);
     }
     for (int i = 0; i < threads; i++)
     {
         pthread_join(producerThreads[i], nullptr);
     }
+    file->close();
 
-    for (int i = 0; i < MAX; i++)
+    for (int i = 0; i < threads; i++)
     {
-        std::cout << "buffer at " << i << " is " << buffer[i] << "\n"
-                  << std::endl;
+        pthread_join(consumerThreads[i], nullptr);
     }
-
-    // pthread_join(consumerThread, nullptr);
+    outfile->close();
 
     return 0;
 }
