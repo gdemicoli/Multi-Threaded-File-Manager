@@ -2,6 +2,7 @@
 #define ZEM_H
 
 #include <pthread.h>
+#include <iostream>
 
 class Zem
 {

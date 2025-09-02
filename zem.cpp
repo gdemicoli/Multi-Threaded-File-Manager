@@ -16,25 +16,67 @@ Zem::Zem(int initialValue)
 
 Zem::~Zem()
 {
-    pthread_mutex_destroy(&lock);
-    pthread_cond_destroy(&cond);
+    int returnVal;
+    returnVal = pthread_mutex_destroy(&lock);
+    if (returnVal != 0)
+    {
+        std::cerr << "Mutex destroy failed" << std::endl;
+    }
+
+    returnVal = pthread_cond_destroy(&cond);
+    if (returnVal != 0)
+    {
+        std::cerr << "Cond destroy failed" << std::endl;
+    }
 }
 
 void Zem::wait()
 {
-    pthread_mutex_lock(&lock);
+    int returnVal;
+
+    returnVal = pthread_mutex_lock(&lock);
+    if (returnVal != 0)
+    {
+        throw std::runtime_error("Mutex lock failed");
+    }
+
     while (value <= 0)
     {
-        pthread_cond_wait(&cond, &lock);
+        returnVal = pthread_cond_wait(&cond, &lock);
+        if (returnVal != 0)
+        {
+            throw std::runtime_error("Cond wait failed");
+        }
     }
     value--;
-    pthread_mutex_unlock(&lock);
+    returnVal = pthread_mutex_unlock(&lock);
+    if (returnVal != 0)
+    {
+        throw std::runtime_error("Mutex unlock failed");
+    }
 }
 
 void Zem::post()
 {
-    pthread_mutex_lock(&lock);
+    int returnVal;
+
+    returnVal = pthread_mutex_lock(&lock);
+
+    if (returnVal != 0)
+    {
+        throw std::runtime_error("Mutex lock failed");
+    }
+
     value++;
-    pthread_cond_signal(&cond);
-    pthread_mutex_unlock(&lock);
+    returnVal = pthread_cond_signal(&cond);
+    if (returnVal != 0)
+    {
+        throw std::runtime_error("Cond signal failed");
+    }
+
+    returnVal = pthread_mutex_unlock(&lock);
+    if (returnVal != 0)
+    {
+        throw std::runtime_error("Mutex unlock failed");
+    }
 }

@@ -86,19 +86,19 @@ void *producer(void *arg)
 
     while (true)
     {
-        empty.wait();      // Line P1
-        queueMutex.wait(); // Line P1.5 (lock)
+        empty.wait();
+        queueMutex.wait();
         if (!std::getline(*file, line))
         {
             put("__STOP__");
-            queueMutex.post(); // Line P2.5 (unlock)
-            full.post();       // Line P3
+            queueMutex.post();
+            full.post();
             break;
         }
         std::cout << "Produced: '" << line << "' at index " << fill << std::endl;
-        put(line);         // Line P2
-        queueMutex.post(); // Line P2.5 (unlock)
-        full.post();       // Line P3
+        put(line);
+        queueMutex.post();
+        full.post();
     }
 
     return nullptr;
@@ -135,13 +135,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char *sourcefile = argv[2]; // char arrays
-    char *destFile = argv[3];   // char arrays
+    char *sourcefile = argv[2];
+    char *destFile = argv[3];
 
     std::ifstream *file = new std::ifstream(sourcefile);
     if (!file->is_open())
     {
         std::cerr << "File not found" << std::endl;
+        return 1;
     }
 
     std::ofstream *outfile = new std::ofstream(destFile, std::ios::out);
@@ -158,9 +159,6 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < threads; i++)
     {
-        // std::string name = source + std::to_string(i + 1) + txt;
-        // *file is created on the heap so it lives no past the loop iteration
-        // fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
         returnProducer = pthread_create(&producerThreads[i], nullptr, producer, file);
         if (returnProducer != 0)
         {
@@ -175,13 +173,24 @@ int main(int argc, char *argv[])
     }
     for (int i = 0; i < threads; i++)
     {
-        pthread_join(producerThreads[i], nullptr);
+        returnProducer = pthread_join(producerThreads[i], nullptr);
+
+        if (returnProducer != 0)
+        {
+            std::cerr << "Error when joining producer thread" << std::endl;
+            return 1;
+        }
     }
     file->close();
 
     for (int i = 0; i < threads; i++)
     {
-        pthread_join(consumerThreads[i], nullptr);
+        returnProducer = pthread_join(consumerThreads[i], nullptr);
+        if (returnProducer != 0)
+        {
+            std::cerr << "Error when joining consumer thread" << std::endl;
+            return 1;
+        }
     }
     outfile->close();
 
