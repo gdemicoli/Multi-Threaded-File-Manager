@@ -4,8 +4,10 @@
 #include "zem.h"
 
 // FIX-ME: must check return type of all api functions
-// FIX-ME:  check memory usage wuth valgribnd on titan
-//
+// FIX-ME: check memory usage wuth valgribnd on titan
+// FIX-ME: check if can run on teaching servers
+// FIX-ME: create a make file to create your file
+
 const int MAX = 20;
 Zem empty(MAX);
 Zem full(0);
@@ -151,14 +153,25 @@ int main(int argc, char *argv[])
 
     pthread_t producerThreads[threads];
     pthread_t consumerThreads[threads];
+    int returnProducer;
+    int returnConsumer;
 
     for (int i = 0; i < threads; i++)
     {
         // std::string name = source + std::to_string(i + 1) + txt;
         // *file is created on the heap so it lives no past the loop iteration
         // fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
-        pthread_create(&producerThreads[i], nullptr, producer, file);
-        pthread_create(&consumerThreads[i], nullptr, consumer, outfile);
+        returnProducer = pthread_create(&producerThreads[i], nullptr, producer, file);
+        if (returnProducer != 0)
+        {
+            std::cerr << "Error when making producer thread" << std::endl;
+        }
+
+        returnConsumer = pthread_create(&consumerThreads[i], nullptr, consumer, outfile);
+        if (returnConsumer != 0)
+        {
+            std::cerr << "Error when making consumer thread" << std::endl;
+        }
     }
     for (int i = 0; i < threads; i++)
     {
