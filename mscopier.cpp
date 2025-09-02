@@ -4,6 +4,8 @@
 #include "zem.h"
 
 // FIX-ME: must check return type of all api functions
+// FIX-ME:  check memory usage wuth valgribnd on titan
+//
 const int MAX = 20;
 Zem empty(MAX);
 Zem full(0);
