@@ -3,7 +3,7 @@
 #include <fstream>
 #include "zem.h"
 
-// FIX-ME: must check return type of all api functions
+// FIX-ME: must check return type of all api functions DONE
 // FIX-ME: check memory usage wuth valgribnd on titan
 // FIX-ME: check if can run on teaching servers
 // FIX-ME: create a make file to create your file
