@@ -1,5 +1,6 @@
 #include "zem.h"
 #include <stdexcept>
+// semaphore class represented as Zem using cond variables and locks
 
 Zem::Zem(int initialValue)
 {

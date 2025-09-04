@@ -1,0 +1,9 @@
+mmcopier:
+This copies between 2 & 10 files from a source directory to a target directory.
+If the source or target do not exist it will exit with an error code.
+If there are no files in the source the threads will produce an error code and exit.
+
+mscoper:
+this copies all of the lines from one file to another file.
+If the dest file specified doesn't exist it will be created.
+if the source file doesnt exist it will exit with an error.

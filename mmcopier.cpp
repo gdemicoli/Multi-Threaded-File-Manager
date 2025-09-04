@@ -1,6 +1,9 @@
 #include <iostream>
 #include <pthread.h>
 #include <fstream>
+#include <cstdlib>
+#include <sys/stat.h>
+
 class fileData
 {
 public:
@@ -28,12 +31,12 @@ void *copyFile(void *arg)
 
     if (!src)
     {
-        std::cerr << "Error opening source file: " << sourcePath << std::endl;
+        std::cerr << "Error opening source dir: " << sourcePath << std::endl;
         return nullptr;
     }
     if (!dst)
     {
-        std::cerr << "Error opening destination file: " << destPath << std::endl;
+        std::cerr << "Error opening destination dir: " << destPath << std::endl;
         return nullptr;
     }
 
@@ -52,47 +55,62 @@ int main(int argc, char *argv[])
     std::string numFilesStr = argv[1];
     int numFiles = 0;
 
-    try
+    char *endptr;
+    numFiles = strtol(argv[1], &endptr, 10);
+    if (*endptr != '\0' || numFiles < 2 || numFiles > 10)
     {
-        numFiles = std::stoi(numFilesStr);
-        if (numFiles < 2 || numFiles > 10)
-        {
-            std::cerr << "Error: number of files must be between 2 & 10\n";
-            return 1;
-        }
-    }
-    catch (const std::invalid_argument &)
-    {
-        std::cerr << "Error: first arguement must be a valid integer\n";
-        return 1;
-    }
-    catch (const std::out_of_range &)
-    {
-        std::cerr << "Error: integer out of range\n";
+        std::cerr << "Error: number of files must be a valid integer between 2 & 10\n";
         return 1;
     }
 
-    char *sourceDir = argv[2]; // char arrays
-    char *destDir = argv[3];   // char arrays
+    char *sourceDir = argv[2];
+    char *destDir = argv[3];
+
+    struct stat st = {0};
+
+    if (stat(sourceDir, &st) != 0 || !S_ISDIR(st.st_mode))
+    {
+        std::cerr << "Error: source directory does not exist: " << sourceDir << std::endl;
+        return 1;
+    }
+
+    if (stat(destDir, &st) != 0 || !S_ISDIR(st.st_mode))
+    {
+        std::cerr << "Error: destination directory does not exist: " << destDir << std::endl;
+        return 1;
+    }
 
     std::string source = "source";
     std::string txt = ".txt";
     pthread_t threads[numFiles];
+    int returnValue;
+
     for (int i = 0; i < numFiles; i++)
     {
+
         std::string name = source + std::to_string(i + 1) + txt;
-        // *file is created on the heap so it lives no past the loop iteration
-        fileData *file = new fileData(name, sourceDir, destDir); // char arrays are implcitly changed to std::string
-        pthread_create(&threads[i], nullptr, copyFile, file);
+        fileData *file = new fileData(name, sourceDir, destDir);
+        returnValue = pthread_create(&threads[i], nullptr, copyFile, file);
+
+        if (returnValue != 0)
+        {
+            delete file;
+            std::cerr << "Error when making thread" << std::endl;
+            return 1;
+        }
     }
 
     for (int i = 0; i < numFiles; ++i)
     {
         void *ptr;
-        pthread_join(threads[i], &ptr);
+        returnValue = pthread_join(threads[i], &ptr);
+        if (returnValue != 0)
+        {
+            std::cerr << "Error when making thread" << std::endl;
+            return 1;
+        }
         delete static_cast<fileData *>(ptr);
     }
 
-    std::cout << "Main thread exiting." << std::endl;
     return 0;
 }
